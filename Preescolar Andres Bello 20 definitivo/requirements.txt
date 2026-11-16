@@ -1,0 +1,22 @@
+fastapi
+uvicorn
+sqlmodel
+psycopg2-binary
+PyJWT
+python-dotenv
+email-validator
+psycopg[binary]
+passlib
+python-multipart
+
+pip install -r requirements.txt
+pip install fastapi uvicorn sqlmodel PyJWT python-dotenv psycopg2-binary
+python -m uvicorn main:app --reload
+venv\Scripts\Activate.ps1
+
+{
+  "nombre_completo": "Administrador Principal",
+  "email": "admin@ceandresbello.com",
+  "password": "camila123",
+  "rol_id": 1
+}

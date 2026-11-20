@@ -1,13 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos globales */
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Nunito', sans-serif;
+  background-color: #F8FAFC;
+  color: #334155;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Clases utilitarias personalizadas */
+@layer components {
+  .btn-primary {
+    @apply bg-preescolar-primary text-white px-6 py-3 rounded-xl font-bold 
+           shadow-lg shadow-preescolar-primary/30 hover:bg-preescolar-primary-dark 
+           transition-all transform hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-preescolar-primary border-2 border-preescolar-primary 
+           px-6 py-3 rounded-xl font-bold hover:bg-preescolar-primary/5 transition-all;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 
+           focus:border-preescolar-primary focus:ring-2 focus:ring-preescolar-primary/20 
+           outline-none transition-all bg-white;
+  }
+  
+  .card {
+    @apply bg-white p-6 rounded-2xl shadow-sm border border-gray-100;
+  }
 }

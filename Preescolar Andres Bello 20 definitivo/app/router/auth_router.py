@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
 from app.config.database import get_session
@@ -12,40 +12,39 @@ router = APIRouter(
     tags=["Autenticación y Usuarios"]
 )
 
-security = HTTPBearer()  # Instancia de seguridad para manejar tokens JWT
-
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(datos: UserCreate, session: Session = Depends(get_session)):
-    """Cualquier usuario autorizado puede registrar un nuevo usuario en el sistema."""
     return auth_service.registrar_usuario(session, datos)
 
 @router.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
-    """
-    Integra OAuth2PasswordRequestForm para que el botón 'Authorize' en Swagger UI 
-    funcione perfectamente pidiendo correo (en username) y contraseña.
-    """
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    session: Session = Depends(get_session)
+):
     datos_login = UserLogin(correo=form_data.username, password=form_data.password)
-    return auth_service.iniciar_sesion(session, datos_login)
+    token_data = auth_service.iniciar_sesion(session, datos_login)
+    
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales incorrectas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token_data
 
 @router.get("/usuarios", response_model=list[UserResponse])
 def get_users(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1]))  # Solo el Administrador (Rol 1) puede listar usuarios
+    usuario_actual: dict = Depends(requerir_rol([1]))
 ):
-    """Retorna la lista de usuarios del sistema (Ruta protegida para Admins)."""
     return auth_service.listar_usuarios(session)
 
 @router.get("/perfil")
 def obtener_perfil(
-    usuario_actual: dict = Depends(obtener_usuario_actual)  # Protegido automáticamente con el token JWT
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
-    """
-    Ruta protegida que exige el token JWT en el encabezado 
-    Authorization: Bearer <token>
-    """
     return {
-        "mensaje": "Acceso permitido a la ruta protegida del C.E.I. Andrés Bello",
+        "mensaje": "Acceso permitido",
         "usuario_correo": usuario_actual.get("sub"),
         "rol_id": usuario_actual.get("rol_id"),
         "id_usuario": usuario_actual.get("id")

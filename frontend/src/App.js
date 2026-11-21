@@ -1,25 +1,29 @@
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import Layout from './componentes/layout/Layout';
+import Layout from './componentes/layout/layout';
 
+// Páginas
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Inscripciones from './pages/Inscripciones';
-import Matriculas from './pages/Matriculas';
+import Matriculas from './pages/matriculas';
+import Periodos from './pages/Periodos';
+import Secciones from './pages/Secciones';
 import Auditoria from './pages/Auditoria';
 import Usuarios from './pages/Usuarios';
 
 function ProtectedRoute({ children, rolesPermitidos }) {
   const { user } = useAuth();
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (rolesPermitidos && !rolesPermitidos.includes(user.rol)) {
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 }
 
@@ -34,10 +38,32 @@ function App() {
       />
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route path="/" element={<Dashboard />} />
+        <Route 
+          path="/" 
+          element={
+            <ProtectedRoute rolesPermitidos={['admin', 'directora']}>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/inscripciones" element={<Inscripciones />} />
         <Route path="/matriculas" element={<Matriculas />} />
-        
+        <Route 
+          path="/periodos" 
+          element={
+            <ProtectedRoute rolesPermitidos={['admin', 'directora']}>
+              <Periodos />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/secciones" 
+          element={
+            <ProtectedRoute rolesPermitidos={['admin', 'directora', 'secretaria']}>
+              <Secciones />
+            </ProtectedRoute>
+          } 
+        />
         <Route 
           path="/auditoria" 
           element={
@@ -46,7 +72,6 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        
         <Route 
           path="/usuarios" 
           element={

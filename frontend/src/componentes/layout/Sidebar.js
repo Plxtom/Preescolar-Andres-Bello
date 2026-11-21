@@ -1,10 +1,18 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  LayoutDashboard, Users, GraduationCap, ShieldCheck, 
-  Settings, LogOut, Baby 
+  LayoutDashboard, 
+  Users, 
+  GraduationCap, 
+  ShieldCheck, 
+  Settings, 
+  LogOut, 
+  Baby, 
+  Calendar, 
+  BookOpen 
 } from 'lucide-react';
 
+// Definición del menú con sus roles permitidos
 const menuItems = [
   { 
     name: 'Dashboard', 
@@ -22,6 +30,18 @@ const menuItems = [
     name: 'Matrículas', 
     path: '/matriculas', 
     icon: GraduationCap, 
+    roles: ['admin', 'directora', 'secretaria'] 
+  },
+  { 
+    name: 'Períodos', 
+    path: '/periodos', 
+    icon: Calendar, 
+    roles: ['admin', 'directora'] 
+  },
+  { 
+    name: 'Secciones', 
+    path: '/secciones', 
+    icon: BookOpen, 
     roles: ['admin', 'directora', 'secretaria'] 
   },
   { 
@@ -48,6 +68,7 @@ export default function Sidebar() {
     navigate('/login');
   };
 
+  // Colores según el rol del usuario
   const colorRol = {
     admin: 'bg-red-100 text-red-700',
     directora: 'bg-purple-100 text-purple-700',
@@ -56,11 +77,11 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-white h-screen shadow-xl flex flex-col sticky top-0">
-      {/* Header */}
+      {/* Header del Sidebar */}
       <div className="p-6 text-center border-b border-gray-100">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <Baby className="text-preescolar-secondary" size={32} />
-          <h1 className="text-xl font-extrabold text-preescolar-primary">
+          <Baby className="text-blue-600" size={32} />
+          <h1 className="text-xl font-extrabold text-blue-600">
             C.E.I. Andrés Bello
           </h1>
         </div>
@@ -70,11 +91,12 @@ export default function Sidebar() {
         </span>
       </div>
 
-      {/* Menú */}
+      {/* Menú de navegación */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
+          // Ocultar opción si el usuario no tiene el rol permitido
           if (!tienePermiso(item.roles)) return null;
-          
+
           const isActive = location.pathname === item.path;
           return (
             <Link
@@ -82,8 +104,8 @@ export default function Sidebar() {
               to={item.path}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                 isActive 
-                  ? 'bg-preescolar-primary text-white shadow-lg shadow-preescolar-primary/30' 
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-preescolar-primary'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
               }`}
             >
               <item.icon size={20} />
@@ -93,11 +115,11 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer con usuario */}
+      {/* Footer con información del usuario y logout */}
       <div className="p-4 border-t border-gray-100">
         <div className="flex items-center gap-3 mb-3 px-2">
-          <div className="w-10 h-10 rounded-full bg-preescolar-primary/10 flex items-center justify-center">
-            <span className="text-preescolar-primary font-bold">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+            <span className="text-blue-600 font-bold">
               {user?.nombre?.charAt(0).toUpperCase()}
             </span>
           </div>

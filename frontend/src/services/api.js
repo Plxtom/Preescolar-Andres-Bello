@@ -1,5 +1,6 @@
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
+// Headers con token JWT
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
   return {
@@ -8,13 +9,14 @@ const getAuthHeaders = () => {
   };
 };
 
+// Manejo genérico de errores
 const handleResponse = async (response) => {
   if (!response.ok) {
     if (response.status === 401) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user_data');
       window.location.href = '/login';
-      throw new Error('Sesión expirada');
+      throw new Error('Sesión expirada. Inicia sesión nuevamente.');
     }
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || `Error ${response.status}`);
@@ -22,21 +24,17 @@ const handleResponse = async (response) => {
   return response.json();
 };
 
-// ============ AUTH ============
+// ============ AUTENTICACIÓN ============
 export const login = async (email, password) => {
   const formData = new URLSearchParams();
-  formData.append('username', email); 
+  formData.append('username', email);
   formData.append('password', password);
-
-  console.log("🔍 Conectando a:", `${API_BASE_URL}/auth/login`);
 
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formData.toString()
   });
-
-  console.log("📡 Estado de respuesta:", response.status);
   return handleResponse(response);
 };
 
@@ -66,7 +64,35 @@ export const crearUsuario = async (datos) => {
   return handleResponse(response);
 };
 
-// ============ ANALÍTICA ============
+// PATCH: Actualización parcial (solo campos modificados)
+export const editarUsuario = async (id, datos) => {
+  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
+  });
+  return handleResponse(response);
+};
+
+//  PUT: Reemplazo completo (todos los campos requeridos)
+export const actualizarUsuarioCompleto = async (id, datos) => {
+  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
+  });
+  return handleResponse(response);
+};
+
+export const eliminarUsuario = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  return handleResponse(response);
+};
+
+// ============ ANALÍTICA (Dashboard) ============
 export const getDashboardAnalytics = async () => {
   const response = await fetch(`${API_BASE_URL}/analytics/dashboard`, {
     method: 'GET',
@@ -115,21 +141,25 @@ export const listarPeriodos = async (soloActivos = false) => {
   const url = soloActivos 
     ? `${API_BASE_URL}/periodos/?solo_activos=true`
     : `${API_BASE_URL}/periodos/`;
-  const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders()
+  });
   return handleResponse(response);
 };
 
-// ✅ CORREGIDO: Cambiado periodo_id por periodoId
 export const listarSeccionesPorPeriodo = async (periodoId) => {
   const response = await fetch(`${API_BASE_URL}/periodos/${periodoId}/secciones`, {
-    method: 'GET', headers: getAuthHeaders()
+    method: 'GET',
+    headers: getAuthHeaders()
   });
   return handleResponse(response);
 };
 
 export const listarTodasSecciones = async () => {
   const response = await fetch(`${API_BASE_URL}/periodos/secciones/todas`, {
-    method: 'GET', headers: getAuthHeaders()
+    method: 'GET',
+    headers: getAuthHeaders()
   });
   return handleResponse(response);
 };
@@ -142,15 +172,18 @@ export const getAuditoriaLogs = async (pagina = 1, limite = 20, filtros = {}) =>
     ...(filtros?.accion && { accion: filtros.accion }),
     ...(filtros?.usuario_id && { usuario_id: filtros.usuario_id })
   });
+
   const response = await fetch(`${API_BASE_URL}/auditoria/logs?${params}`, {
-    method: 'GET', headers: getAuthHeaders()
+    method: 'GET',
+    headers: getAuthHeaders()
   });
   return handleResponse(response);
 };
 
 export const getAccionesDisponibles = async () => {
   const response = await fetch(`${API_BASE_URL}/auditoria/acciones-disponibles`, {
-    method: 'GET', headers: getAuthHeaders()
+    method: 'GET',
+    headers: getAuthHeaders()
   });
   return handleResponse(response);
 };

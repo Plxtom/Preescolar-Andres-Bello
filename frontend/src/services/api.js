@@ -79,7 +79,7 @@ export const getDashboardAnalytics = async () => {
   return handleResponse(response);
 };
 
-// ============ INSCRIPCIONES (PUT y PATCH) ============
+// ============ INSCRIPCIONES ============
 export const listarInscripciones = async () => {
   const response = await fetch(`${API_BASE_URL}/inscripciones/`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
@@ -90,23 +90,13 @@ export const crearInscripcion = async (datos) => {
   return handleResponse(response);
 };
 
-// ✅ PUT: Reemplazo completo (se usa desde el modal de edición con todos los datos)
 export const editarInscripcion = async (id, datos) => {
-  const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
-// ✅ PATCH: Actualización parcial (se usa para cambios rápidos como solo el estatus o la sección)
 export const actualizarInscripcionParcial = async (id, datos) => {
-  const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
@@ -117,60 +107,38 @@ export const eliminarInscripcion = async (id) => {
 
 // ============ PERÍODOS ============
 export const listarPeriodos = async (soloActivos = false) => {
-  const url = soloActivos 
-    ? `${API_BASE_URL}/periodos/?solo_activos=true`
-    : `${API_BASE_URL}/periodos/`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const url = soloActivos ? `${API_BASE_URL}/periodos/?solo_activos=true` : `${API_BASE_URL}/periodos/`;
+  const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 export const crearPeriodo = async (datos) => {
-  const response = await fetch(`${API_BASE_URL}/periodos/`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
 export const editarPeriodo = async (id, datos) => {
-  const response = await fetch(`${API_BASE_URL}/periodos/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
 export const eliminarPeriodo = async (id) => {
-  const response = await fetch(`${API_BASE_URL}/periodos/${id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 // ============ SECCIONES ============
 export const listarSeccionesPorPeriodo = async (periodoId) => {
-  const response = await fetch(`${API_BASE_URL}/periodos/${periodoId}/secciones`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/${periodoId}/secciones`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 export const listarTodasSecciones = async () => {
-  const response = await fetch(`${API_BASE_URL}/periodos/secciones/todas`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/secciones/todas`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
-// URL con slash al final
+// URL con slash al final (CRUCIAL para FastAPI)
 export const crearSeccion = async (datos) => {
   const response = await fetch(`${API_BASE_URL}/periodos/secciones/`, {
     method: 'POST',
@@ -181,42 +149,27 @@ export const crearSeccion = async (datos) => {
 };
 
 export const editarSeccion = async (id, datos) => {
-  const response = await fetch(`${API_BASE_URL}/periodos/secciones/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/secciones/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
 export const eliminarSeccion = async (id) => {
-  const response = await fetch(`${API_BASE_URL}/periodos/secciones/${id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/periodos/secciones/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 // ============ AUDITORÍA ============
 export const getAuditoriaLogs = async (pagina = 1, limite = 20, filtros = {}) => {
   const params = new URLSearchParams({
-    page: pagina,
-    limit: limite,
+    page: pagina, limit: limite,
     ...(filtros?.accion && { accion: filtros.accion }),
     ...(filtros?.usuario_id && { usuario_id: filtros.usuario_id })
   });
-
-  const response = await fetch(`${API_BASE_URL}/auditoria/logs?${params}`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/auditoria/logs?${params}`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 export const getAccionesDisponibles = async () => {
-  const response = await fetch(`${API_BASE_URL}/auditoria/acciones-disponibles`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/auditoria/acciones-disponibles`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };

@@ -1,7 +1,5 @@
 from sqlmodel import Session
-from datetime import datetime
-
-
+from datetime import datetime, timezone  
 from app.models import AuditoriaLogModel
 
 
@@ -22,11 +20,11 @@ def registrar_log(
             tabla_afectada=tabla_afectada,
             registro_id=registro_id,
             detalles=detalles,
-            fecha_hora=datetime.utcnow()
+            fecha_hora=datetime.now(timezone.utc)  # ✅ Corregido el timezone
         )
         session.add(log)
         session.commit()
     except Exception as e:
         # Si falla la auditoría, no debe romper la operación principal
         session.rollback()
-        print(f"Error al registrar auditoría: {str(e)}")
+        print(f"❌ Error al registrar auditoría: {str(e)}")

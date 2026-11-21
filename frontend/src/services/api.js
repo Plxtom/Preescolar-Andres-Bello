@@ -1,6 +1,5 @@
 const API_BASE_URL = 'http://localhost:8000/api';
 
-// Headers con token JWT
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
   return {
@@ -9,7 +8,6 @@ const getAuthHeaders = () => {
   };
 };
 
-// Manejo genérico de errores
 const handleResponse = async (response) => {
   if (!response.ok) {
     if (response.status === 401) {
@@ -18,8 +16,20 @@ const handleResponse = async (response) => {
       window.location.href = '/login';
       throw new Error('Sesión expirada. Inicia sesión nuevamente.');
     }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Error ${response.status}`);
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) {
+        if (typeof errorData.detail === 'string') throw new Error(errorData.detail);
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail.map(e => e.msg || e.message).join(', '));
+        }
+        throw new Error(JSON.stringify(errorData.detail));
+      }
+      throw new Error(`Error ${response.status}`);
+    } catch (parseError) {
+      if (parseError.message && !parseError.message.includes('JSON')) throw parseError;
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
   }
   return response.json();
 };
@@ -29,7 +39,6 @@ export const login = async (email, password) => {
   const formData = new URLSearchParams();
   formData.append('username', email);
   formData.append('password', password);
-
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -39,86 +48,49 @@ export const login = async (email, password) => {
 };
 
 export const obtenerPerfil = async () => {
-  const response = await fetch(`${API_BASE_URL}/auth/perfil`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/auth/perfil`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 // ============ USUARIOS ============
 export const listarUsuarios = async () => {
-  const response = await fetch(`${API_BASE_URL}/auth/usuarios`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/auth/usuarios`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 export const crearUsuario = async (datos) => {
-  const response = await fetch(`${API_BASE_URL}/auth/register`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/auth/register`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
-// PATCH: Actualización parcial (solo campos modificados)
 export const editarUsuario = async (id, datos) => {
-  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
-  return handleResponse(response);
-};
-
-//  PUT: Reemplazo completo (todos los campos requeridos)
-export const actualizarUsuarioCompleto = async (id, datos) => {
-  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
 export const eliminarUsuario = async (id) => {
-  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/auth/usuarios/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
-// ============ ANALÍTICA (Dashboard) ============
+// ============ ANALÍTICA ============
 export const getDashboardAnalytics = async () => {
-  const response = await fetch(`${API_BASE_URL}/analytics/dashboard`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/analytics/dashboard`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
-// ============ INSCRIPCIONES ============
+// ============ INSCRIPCIONES (PUT y PATCH) ============
 export const listarInscripciones = async () => {
-  const response = await fetch(`${API_BASE_URL}/inscripciones/`, {
-    method: 'GET',
-    headers: getAuthHeaders()
-  });
+  const response = await fetch(`${API_BASE_URL}/inscripciones/`, { method: 'GET', headers: getAuthHeaders() });
   return handleResponse(response);
 };
 
 export const crearInscripcion = async (datos) => {
-  const response = await fetch(`${API_BASE_URL}/inscripciones/`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(datos)
-  });
+  const response = await fetch(`${API_BASE_URL}/inscripciones/`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(datos) });
   return handleResponse(response);
 };
 
+// ✅ PUT: Reemplazo completo (se usa desde el modal de edición con todos los datos)
 export const editarInscripcion = async (id, datos) => {
   const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, {
     method: 'PUT',
@@ -128,15 +100,22 @@ export const editarInscripcion = async (id, datos) => {
   return handleResponse(response);
 };
 
-export const eliminarInscripcion = async (id) => {
+// ✅ PATCH: Actualización parcial (se usa para cambios rápidos como solo el estatus o la sección)
+export const actualizarInscripcionParcial = async (id, datos) => {
   const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders()
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
   });
   return handleResponse(response);
 };
 
-// ============ PERÍODOS Y SECCIONES ============
+export const eliminarInscripcion = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/inscripciones/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+  return handleResponse(response);
+};
+
+// ============ PERÍODOS ============
 export const listarPeriodos = async (soloActivos = false) => {
   const url = soloActivos 
     ? `${API_BASE_URL}/periodos/?solo_activos=true`
@@ -148,6 +127,33 @@ export const listarPeriodos = async (soloActivos = false) => {
   return handleResponse(response);
 };
 
+export const crearPeriodo = async (datos) => {
+  const response = await fetch(`${API_BASE_URL}/periodos/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
+  });
+  return handleResponse(response);
+};
+
+export const editarPeriodo = async (id, datos) => {
+  const response = await fetch(`${API_BASE_URL}/periodos/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
+  });
+  return handleResponse(response);
+};
+
+export const eliminarPeriodo = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/periodos/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  return handleResponse(response);
+};
+
+// ============ SECCIONES ============
 export const listarSeccionesPorPeriodo = async (periodoId) => {
   const response = await fetch(`${API_BASE_URL}/periodos/${periodoId}/secciones`, {
     method: 'GET',
@@ -159,6 +165,33 @@ export const listarSeccionesPorPeriodo = async (periodoId) => {
 export const listarTodasSecciones = async () => {
   const response = await fetch(`${API_BASE_URL}/periodos/secciones/todas`, {
     method: 'GET',
+    headers: getAuthHeaders()
+  });
+  return handleResponse(response);
+};
+
+// URL con slash al final
+export const crearSeccion = async (datos) => {
+  const response = await fetch(`${API_BASE_URL}/periodos/secciones/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
+  });
+  return handleResponse(response);
+};
+
+export const editarSeccion = async (id, datos) => {
+  const response = await fetch(`${API_BASE_URL}/periodos/secciones/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(datos)
+  });
+  return handleResponse(response);
+};
+
+export const eliminarSeccion = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/periodos/secciones/${id}`, {
+    method: 'DELETE',
     headers: getAuthHeaders()
   });
   return handleResponse(response);

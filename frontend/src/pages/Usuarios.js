@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, UserPlus, Edit2, Trash2, X, Loader2, Shield, Mail, Lock } from 'lucide-react';
+import { Settings, UserPlus, Edit2, Trash2, X, Loader2, Shield } from 'lucide-react';
 import { crearUsuario, listarUsuarios, editarUsuario, eliminarUsuario } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
@@ -43,7 +43,17 @@ export default function Usuarios() {
       setFormData({ nombre_completo: '', email: '', password: '', rol_id: 2 });
       cargarUsuarios();
     } catch (error) {
-      toast.error(error.message || 'Error al crear');
+      let mensajeError = 'Error al crear usuario';
+      if (error.message) {
+        mensajeError = error.message;
+      } else if (error.detail) {
+        mensajeError = typeof error.detail === 'string' 
+          ? error.detail 
+          : JSON.stringify(error.detail);
+      } else if (typeof error === 'object') {
+        mensajeError = error.detail?.msg || error.detail?.message || JSON.stringify(error);
+      }
+      toast.error(mensajeError);
     } finally {
       setLoading(false);
     }
@@ -56,9 +66,19 @@ export default function Usuarios() {
       await editarUsuario(usuarioSeleccionado.id, formData);
       toast.success('Usuario actualizado');
       setModalEditar(false);
+      setUsuarioSeleccionado(null);
+      setFormData({ nombre_completo: '', email: '', password: '', rol_id: 2 });
       cargarUsuarios();
     } catch (error) {
-      toast.error(error.message || 'Error al actualizar');
+      let mensajeError = 'Error al actualizar';
+      if (error.message) {
+        mensajeError = error.message;
+      } else if (typeof error === 'object' && error.detail) {
+        mensajeError = typeof error.detail === 'string' 
+          ? error.detail 
+          : JSON.stringify(error.detail);
+      }
+      toast.error(mensajeError);
     } finally {
       setLoading(false);
     }
@@ -82,7 +102,11 @@ export default function Usuarios() {
         toast.success('Usuario eliminado');
         cargarUsuarios();
       } catch (error) {
-        toast.error(error.message || 'Error al eliminar');
+        let mensajeError = 'Error al eliminar';
+        if (error.message) {
+          mensajeError = error.message;
+        }
+        toast.error(mensajeError);
       }
     }
   };
@@ -92,7 +116,7 @@ export default function Usuarios() {
     setFormData({
       nombre_completo: usuario.nombre_completo,
       email: usuario.email,
-      password: '', // No se muestra la contraseña por seguridad
+      password: '',
       rol_id: usuario.rol_id
     });
     setModalEditar(true);
@@ -151,7 +175,7 @@ export default function Usuarios() {
                     <button onClick={() => abrirEditar(u)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar">
                       <Edit2 size={16} />
                     </button>
-                    {u.id !== user?.id && ( // No permitir eliminarse a sí mismo
+                    {u.id !== user?.id && (
                       <button onClick={() => handleEliminar(u.id, u.nombre_completo)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Eliminar">
                         <Trash2 size={16} />
                       </button>
@@ -164,7 +188,6 @@ export default function Usuarios() {
         </table>
       </div>
 
-      {/* Modal Crear */}
       {modalCrear && (
         <ModalUsuario 
           titulo="Crear Nuevo Usuario" 
@@ -177,7 +200,6 @@ export default function Usuarios() {
         />
       )}
 
-      {/* Modal Editar */}
       {modalEditar && (
         <ModalUsuario 
           titulo="Editar Usuario" 
@@ -193,7 +215,6 @@ export default function Usuarios() {
   );
 }
 
-// Componente reutilizable para los modales de usuario
 function ModalUsuario({ titulo, formData, setFormData, onSubmit, onClose, loading, esEditar }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -205,21 +226,48 @@ function ModalUsuario({ titulo, formData, setFormData, onSubmit, onClose, loadin
         <form onSubmit={onSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Nombre Completo</label>
-            <input type="text" value={formData.nombre_completo} onChange={(e) => setFormData({...formData, nombre_completo: e.target.value})} required className="w-full px-4 py-2 rounded-xl border border-gray-200" />
+            <input 
+              type="text" 
+              value={formData.nombre_completo} 
+              onChange={(e) => setFormData({...formData, nombre_completo: e.target.value})} 
+              required 
+              className="w-full px-4 py-2 rounded-xl border border-gray-200" 
+            />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
-            <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required className="w-full px-4 py-2 rounded-xl border border-gray-200" />
+            <input 
+              type="email" 
+              value={formData.email} 
+              onChange={(e) => setFormData({...formData, email: e.target.value})} 
+              required 
+              className="w-full px-4 py-2 rounded-xl border border-gray-200" 
+            />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">
               Contraseña {esEditar && <span className="text-xs font-normal text-gray-500">(Dejar vacío para no cambiar)</span>}
             </label>
-            <input type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!esEditar} className="w-full px-4 py-2 rounded-xl border border-gray-200" />
+            <input 
+              type="password" 
+              value={formData.password} 
+              onChange={(e) => setFormData({...formData, password: e.target.value})} 
+              required={!esEditar} 
+              minLength={8}
+              placeholder={esEditar ? "Mínimo 8 caracteres (opcional)" : "Mínimo 8 caracteres"}
+              className="w-full px-4 py-2 rounded-xl border border-gray-200" 
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {esEditar ? 'Dejar vacío para mantener la contraseña actual' : 'Mínimo 8 caracteres'}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Rol</label>
-            <select value={formData.rol_id} onChange={(e) => setFormData({...formData, rol_id: parseInt(e.target.value)})} className="w-full px-4 py-2 rounded-xl border border-gray-200">
+            <select 
+              value={formData.rol_id} 
+              onChange={(e) => setFormData({...formData, rol_id: parseInt(e.target.value)})} 
+              className="w-full px-4 py-2 rounded-xl border border-gray-200"
+            >
               <option value={1}>Administrador</option>
               <option value={2}>Secretaria</option>
               <option value={3}>Directora</option>

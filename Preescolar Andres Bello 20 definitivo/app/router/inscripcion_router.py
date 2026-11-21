@@ -5,7 +5,6 @@ from typing import List
 from app.config.database import get_session
 from app.dependencias.auth_deps import obtener_usuario_actual, requerir_rol
 
-# Todos los modelos desde app.models
 from app.models import (
     EstudianteModel,
     RepresentanteModel,
@@ -16,7 +15,7 @@ from app.models import (
     NivelGradoModel
 )
 
-from app.schemas.esq_inscripcion import InscripcionCreate, InscripcionResponse, MatriculaUpdate
+from app.schemas.esq_inscripcion import InscripcionCreate, InscripcionResponse, MatriculaUpdate, InscripcionUpdate
 from app.service.auditoria_service import registrar_log
 
 router = APIRouter(
@@ -30,7 +29,7 @@ def listar_inscripciones(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
-    """Lista todas las inscripciones con datos completos."""
+    """Lista todas las inscripciones con datos COMPLETOS."""
     matriculas = session.exec(
         select(MatriculaModel)
         .where(MatriculaModel.is_active == True)
@@ -43,13 +42,11 @@ def listar_inscripciones(
         seccion = session.get(SeccionModel, mat.seccion_id)
         periodo = session.get(PeriodoAcademicoModel, mat.periodo_id)
         
-        # Obtener grado de la sección
         grado_nombre = ""
         if seccion and seccion.grado_id:
             grado = session.get(NivelGradoModel, seccion.grado_id)
             grado_nombre = grado.nombre if grado else ""
         
-        # Buscar representante legal a través de la tabla puente
         relacion = session.exec(
             select(EstudianteRepresentanteModel).where(
                 EstudianteRepresentanteModel.estudiante_id == mat.estudiante_id,
@@ -67,11 +64,20 @@ def listar_inscripciones(
             "estudiante_nombres": estudiante.nombres if estudiante else "",
             "estudiante_apellidos": estudiante.apellidos if estudiante else "",
             "estudiante_cedula": estudiante.cedula_escolar if estudiante else None,
+            "estudiante_fecha_nacimiento": estudiante.fecha_nacimiento.isoformat() if estudiante and estudiante.fecha_nacimiento else None,
+            "estudiante_genero": estudiante.genero if estudiante else None,
+            "estudiante_lugar_nacimiento": estudiante.lugar_nacimiento if estudiante else None,
+            "estudiante_alergias": estudiante.alergias_condiciones_medicas if estudiante else None,
+            "estudiante_observaciones": estudiante.observaciones if estudiante else None,
             "representante_id": representante.id if representante else None,
             "representante_nombres": representante.nombres if representante else "",
             "representante_apellidos": representante.apellidos if representante else "",
             "representante_cedula": representante.cedula if representante else "",
             "representante_telefono": representante.telefono if representante else "",
+            "representante_email": representante.email if representante else None,
+            "representante_direccion": representante.direccion if representante else None,
+            "representante_lugar_trabajo": representante.lugar_trabajo if representante else None,
+            "representante_telefono_trabajo": representante.telefono_trabajo if representante else None,
             "periodo_id": periodo.id if periodo else None,
             "periodo_nombre": periodo.nombre if periodo else "",
             "seccion_id": seccion.id if seccion else None,
@@ -80,6 +86,7 @@ def listar_inscripciones(
             "es_representante_legal": relacion.es_representante_legal if relacion else False,
             "autorizado_retirar": relacion.autorizado_retirar if relacion else False,
             "estatus": mat.estatus,
+            "observaciones_inscripcion": mat.observaciones_inscripcion,
             "fecha": mat.fecha_matricula.isoformat() if mat.fecha_matricula else None
         })
 
@@ -95,19 +102,16 @@ def crear_inscripcion(
 ):
     """Crea una nueva inscripción completa."""
     try:
-        # 1. Crear representante
         representante = RepresentanteModel(**datos.representante.dict())
         session.add(representante)
         session.commit()
         session.refresh(representante)
 
-        # 2. Crear estudiante
         estudiante = EstudianteModel(**datos.estudiante.dict())
         session.add(estudiante)
         session.commit()
         session.refresh(estudiante)
 
-        # 3. Crear relación en tabla puente
         relacion = EstudianteRepresentanteModel(
             estudiante_id=estudiante.id,
             representante_id=representante.id,
@@ -118,7 +122,6 @@ def crear_inscripcion(
         session.add(relacion)
         session.commit()
 
-        # 4. Crear matrícula
         matricula = MatriculaModel(
             estudiante_id=estudiante.id,
             periodo_id=datos.matricula.periodo_id,
@@ -131,7 +134,6 @@ def crear_inscripcion(
         session.commit()
         session.refresh(matricula)
 
-        # 5. Registrar auditoría
         registrar_log(
             session=session,
             usuario_id=usuario_actual.get("id"),
@@ -150,14 +152,95 @@ def crear_inscripcion(
 
 
 @router.put("/{inscripcion_id}")
-def editar_inscripcion(
+def editar_inscripcion_completa(
+    request: Request,
+    inscripcion_id: int,
+    datos: InscripcionUpdate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1, 2]))
+):
+    """Edita una inscripción completa (PUT) - Actualiza representante, estudiante y matrícula."""
+    mat = session.get(MatriculaModel, inscripcion_id)
+    if not mat:
+        raise HTTPException(status_code=404, detail="Matrícula no encontrada")
+
+    try:
+        # 1. Actualizar representante si viene en los datos
+        if datos.representante:
+            relacion = session.exec(
+                select(EstudianteRepresentanteModel).where(
+                    EstudianteRepresentanteModel.estudiante_id == mat.estudiante_id
+                )
+            ).first()
+            
+            if relacion:
+                representante = session.get(RepresentanteModel, relacion.representante_id)
+                if representante:
+                    representante.nombres = datos.representante.nombres
+                    representante.apellidos = datos.representante.apellidos
+                    representante.cedula = datos.representante.cedula
+                    representante.telefono = datos.representante.telefono
+                    representante.email = datos.representante.email
+                    representante.direccion = datos.representante.direccion
+                    representante.lugar_trabajo = datos.representante.lugar_trabajo
+                    representante.telefono_trabajo = datos.representante.telefono_trabajo
+                    session.add(representante)
+
+        # 2. Actualizar estudiante si viene en los datos
+        if datos.estudiante:
+            estudiante = session.get(EstudianteModel, mat.estudiante_id)
+            if estudiante:
+                estudiante.nombres = datos.estudiante.nombres
+                estudiante.apellidos = datos.estudiante.apellidos
+                estudiante.cedula_escolar = datos.estudiante.cedula_escolar
+                estudiante.fecha_nacimiento = datos.estudiante.fecha_nacimiento
+                estudiante.genero = datos.estudiante.genero
+                estudiante.lugar_nacimiento = datos.estudiante.lugar_nacimiento
+                estudiante.alergias_condiciones_medicas = datos.estudiante.alergias_condiciones_medicas
+                estudiante.observaciones = datos.estudiante.observaciones
+                session.add(estudiante)
+
+        # 3. Actualizar matrícula si viene en los datos
+        if datos.matricula:
+            if datos.matricula.periodo_id is not None:
+                mat.periodo_id = datos.matricula.periodo_id
+            if datos.matricula.seccion_id is not None:
+                mat.seccion_id = datos.matricula.seccion_id
+            if datos.matricula.estatus is not None:
+                mat.estatus = datos.matricula.estatus
+            if datos.matricula.observaciones_inscripcion is not None:
+                mat.observaciones_inscripcion = datos.matricula.observaciones_inscripcion
+
+        session.commit()
+        session.refresh(mat)
+
+        registrar_log(
+            session=session,
+            usuario_id=usuario_actual.get("id"),
+            accion="UPDATE",
+            tabla_afectada="matriculas",
+            registro_id=inscripcion_id,
+            detalles=f"Editada inscripción completa ID {inscripcion_id}",
+            ip_address=request.client.host
+        )
+
+        return {"mensaje": "Inscripción actualizada completamente", "id": mat.id}
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=f"Error al editar: {str(e)}")
+
+
+
+@router.patch("/{inscripcion_id}")
+def actualizar_inscripcion_parcial(
     request: Request,
     inscripcion_id: int,
     datos: MatriculaUpdate,
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(requerir_rol([1, 2]))
 ):
-    """Edita una matrícula existente."""
+    """Actualización parcial de una matrícula (PATCH). Ideal para cambios rápidos como solo el estatus."""
     mat = session.get(MatriculaModel, inscripcion_id)
     if not mat:
         raise HTTPException(status_code=404, detail="Matrícula no encontrada")
@@ -173,22 +256,23 @@ def editar_inscripcion(
             mat.observaciones_inscripcion = datos.observaciones_inscripcion
 
         session.commit()
+        session.refresh(mat)
 
         registrar_log(
             session=session,
             usuario_id=usuario_actual.get("id"),
-            accion="UPDATE",
+            accion="PATCH",
             tabla_afectada="matriculas",
             registro_id=inscripcion_id,
-            detalles=f"Editada matrícula ID {inscripcion_id}",
+            detalles=f"Actualización parcial: estatus cambiado a {mat.estatus}",
             ip_address=request.client.host
         )
 
-        return {"mensaje": "Matrícula actualizada exitosamente"}
+        return {"mensaje": "Matrícula actualizada parcialmente", "id": mat.id}
 
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=400, detail=f"Error al editar: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error al actualizar parcialmente: {str(e)}")
 
 
 @router.delete("/{inscripcion_id}")

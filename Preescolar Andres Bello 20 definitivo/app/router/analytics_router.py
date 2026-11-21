@@ -5,7 +5,6 @@ from datetime import datetime
 from app.config.database import get_session
 from app.dependencias.auth_deps import requerir_rol
 
-# IMPORT CORREGIDO
 from app.models import (
     EstudianteModel,
     SeccionModel,
@@ -27,9 +26,15 @@ def obtener_dashboard(
 ):
     """Devuelve todos los datos para el Dashboard."""
     try:
-        # Total de estudiantes activos
+        # Total de estudiantes CON matrícula activa 
         total_estudiantes = session.exec(
-            select(func.count(EstudianteModel.id)).where(EstudianteModel.is_active == True)
+            select(func.count(EstudianteModel.id))
+            .join(MatriculaModel, EstudianteModel.id == MatriculaModel.estudiante_id)
+            .where(
+                EstudianteModel.is_active == True,
+                MatriculaModel.is_active == True,
+                MatriculaModel.estatus != "ELIMINADO"
+            )
         ).one()
 
         # Total de secciones activas
@@ -60,7 +65,8 @@ def obtener_dashboard(
             .outerjoin(
                 MatriculaModel, 
                 (MatriculaModel.seccion_id == SeccionModel.id) & 
-                (MatriculaModel.is_active == True)
+                (MatriculaModel.is_active == True) &
+                (MatriculaModel.estatus != "ELIMINADO")
             )
             .where(SeccionModel.is_active == True)
             .group_by(SeccionModel.id, SeccionModel.nombre_seccion, SeccionModel.capacidad_maxima)
@@ -83,12 +89,18 @@ def obtener_dashboard(
         else:
             ocupacion_promedio = 0
 
-        # Distribución por género
+        # Distribución por género (solo estudiantes con matrícula activa)
         distribucion_genero = session.exec(
             select(
                 EstudianteModel.genero,
                 func.count(EstudianteModel.id)
-            ).where(EstudianteModel.is_active == True)
+            )
+            .join(MatriculaModel, EstudianteModel.id == MatriculaModel.estudiante_id)
+            .where(
+                EstudianteModel.is_active == True,
+                MatriculaModel.is_active == True,
+                MatriculaModel.estatus != "ELIMINADO"
+            )
             .group_by(EstudianteModel.genero)
         ).all()
 
@@ -97,13 +109,19 @@ def obtener_dashboard(
             for row in distribucion_genero if row[0]
         ]
 
-        # Distribución por edad
+        # Distribución por edad (solo estudiantes con matrícula activa)
         current_year = datetime.now().year
         edades = session.exec(
             select(
                 func.extract('year', EstudianteModel.fecha_nacimiento).label("anio_nac"),
                 func.count(EstudianteModel.id)
-            ).where(EstudianteModel.is_active == True)
+            )
+            .join(MatriculaModel, EstudianteModel.id == MatriculaModel.estudiante_id)
+            .where(
+                EstudianteModel.is_active == True,
+                MatriculaModel.is_active == True,
+                MatriculaModel.estatus != "ELIMINADO"
+            )
             .group_by("anio_nac")
         ).all()
 

@@ -163,8 +163,8 @@ class AuditoriaLogModel(SQLModel, table=True):
     usuario_id: Optional[int] = Field(default=None, foreign_key="usuarios_sistema.id", ondelete="SET NULL")
     accion: str = Field(nullable=False, max_length=50)
     tabla_afectada: str = Field(nullable=False, max_length=50)
-    registro_id: int = Field(nullable=False)
+    registro_id: Optional[int] = Field(default=None, nullable=True)  # ✅ Cambiado a opcional por si es una acción general
     detalles: Optional[str] = Field(default=None, sa_type=Text)
-    fecha_hora: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    fecha_hora: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)  # ✅ Corregido el timezone
 
     usuario: Optional[UsuarioSistemaModel] = Relationship(back_populates="auditorias")

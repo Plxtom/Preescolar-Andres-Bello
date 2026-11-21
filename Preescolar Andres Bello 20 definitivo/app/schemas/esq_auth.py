@@ -14,7 +14,7 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     nombre_completo: Optional[str] = Field(None, min_length=2, max_length=150)
     email: Optional[EmailStr] = None
-    password: Optional[str] = Field(None, min_length=8, max_length=255)
+    password: Optional[str] = Field(default=None, max_length=255)  # ✅ Sin min_length para permitir vacío
     rol_id: Optional[int] = None
     is_active: Optional[bool] = None
 

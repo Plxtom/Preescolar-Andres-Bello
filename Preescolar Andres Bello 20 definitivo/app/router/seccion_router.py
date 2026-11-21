@@ -1,92 +1,148 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload
 from typing import List
 
-from app.models.models import SeccionModel
-from app.schemas.esq_secciones import SeccionCreate, SeccionRead, SeccionUpdate
 from app.config.database import get_session
-from app.dependencias.auth_deps import requerir_rol, obtener_usuario_actual
+from app.dependencias.auth_deps import obtener_usuario_actual, requerir_rol
+from app.models import SeccionModel
+from app.schemas.esq_secciones import SeccionCreate, SeccionUpdate, SeccionResponse
+from app.service.auditoria_service import registrar_log
 
-router = APIRouter(prefix="/api/secciones", tags=["Secciones"])
+router = APIRouter(
+    prefix="/api/periodos/secciones",
+    tags=["Secciones"]
+)
 
-@router.post("/", response_model=SeccionRead)
+
+@router.get("/todas", response_model=List[SeccionResponse])
+def listar_todas_secciones(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(obtener_usuario_actual)
+):
+    """Lista todas las secciones activas."""
+    secciones = session.exec(
+        select(SeccionModel).where(SeccionModel.is_active == True)
+    ).all()
+    return secciones
+
+
+@router.get("/{periodo_id}/secciones", response_model=List[SeccionResponse])
+def listar_secciones_por_periodo(
+    periodo_id: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(obtener_usuario_actual)
+):
+    """Lista las secciones de un período específico."""
+    secciones = session.exec(
+        select(SeccionModel).where(
+            SeccionModel.periodo_id == periodo_id,
+            SeccionModel.is_active == True
+        )
+    ).all()
+    return secciones
+
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
 def crear_seccion(
-    seccion_in: SeccionCreate, 
+    request: Request,
+    datos: SeccionCreate,
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1, 2])) # Admin y Directora
+    usuario_actual: dict = Depends(requerir_rol([1, 3]))
 ):
-    db_seccion = SeccionModel.model_validate(seccion_in)
-    session.add(db_seccion)
-    session.commit()
-    session.refresh(db_seccion)
-    return db_seccion
+    """Crea una nueva sección."""
+    try:
+        seccion = SeccionModel(**datos.dict())
+        session.add(seccion)
+        session.commit()
+        session.refresh(seccion)
 
-@router.get("/", response_model=List[SeccionRead])
-def listar_secciones(
-    session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1, 2, 3])) # Todos los roles
-):
-    statement = select(SeccionModel).where(SeccionModel.is_active == True)
-    return session.exec(statement).all()
+        registrar_log(
+            session=session,
+            usuario_id=usuario_actual.get("id"),
+            accion="CREATE",
+            tabla_afectada="secciones",
+            registro_id=seccion.id,
+            detalles=f"Nueva sección: {seccion.nombre_seccion}",
+            ip_address=request.client.host
+        )
 
-@router.get("/{id}", response_model=SeccionRead)
-def obtener_seccion(
-    id: int, 
-    session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1, 2, 3]))
-):
-    seccion = session.get(SeccionModel, id)
-    if not seccion or not seccion.is_active:
-        raise HTTPException(status_code=404, detail="Sección no encontrada")
-    return seccion
+        return {"mensaje": "Sección creada exitosamente", "id": seccion.id}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=f"Error al crear sección: {str(e)}")
 
-@router.get("/{id}/detalle", response_model=SeccionRead)
-def obtener_seccion_con_relaciones(
-    id: int, 
+
+@router.put("/{seccion_id}")
+def editar_seccion(
+    request: Request,
+    seccion_id: int,
+    datos: SeccionUpdate,
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1, 2, 3]))
+    usuario_actual: dict = Depends(requerir_rol([1, 3]))
 ):
-    statement = (
-        select(SeccionModel)
-        .where(SeccionModel.id == id, SeccionModel.is_active == True)
-        .options(selectinload(SeccionModel.matriculas))
-    )
-    seccion = session.exec(statement).first()
+    """Edita una sección existente."""
+    seccion = session.get(SeccionModel, seccion_id)
     if not seccion:
         raise HTTPException(status_code=404, detail="Sección no encontrada")
-    return seccion
 
-@router.patch("/{id}", response_model=SeccionRead)
-def actualizar_seccion_parcial(
-    id: int, 
-    seccion_in: SeccionUpdate, 
-    session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1, 2])) # Admin y Directora
-):
-    db_seccion = session.get(SeccionModel, id)
-    if not db_seccion or not db_seccion.is_active:
-        raise HTTPException(status_code=404, detail="Sección no encontrada")
-        
-    for llave, valor in seccion_in.model_dump(exclude_unset=True).items():
-        setattr(db_seccion, llave, valor)
-        
-    session.add(db_seccion)
-    session.commit()
-    session.refresh(db_seccion)
-    return db_seccion
+    try:
+        if datos.periodo_id is not None:
+            seccion.periodo_id = datos.periodo_id
+        if datos.grado_id is not None:
+            seccion.grado_id = datos.grado_id
+        if datos.nombre_seccion is not None:
+            seccion.nombre_seccion = datos.nombre_seccion
+        if datos.capacidad_maxima is not None:
+            seccion.capacidad_maxima = datos.capacidad_maxima
+        if datos.docente_encargado is not None:
+            seccion.docente_encargado = datos.docente_encargado
 
-@router.delete("/{id}")
+        session.commit()
+        session.refresh(seccion)
+
+        registrar_log(
+            session=session,
+            usuario_id=usuario_actual.get("id"),
+            accion="UPDATE",
+            tabla_afectada="secciones",
+            registro_id=seccion_id,
+            detalles=f"Sección actualizada: {seccion.nombre_seccion}",
+            ip_address=request.client.host
+        )
+
+        return {"mensaje": "Sección actualizada exitosamente"}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=f"Error al editar: {str(e)}")
+
+
+@router.delete("/{seccion_id}")
 def eliminar_seccion(
-    id: int, 
+    request: Request,
+    seccion_id: int,
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(requerir_rol([1])) # Exclusivo Administrador
+    usuario_actual: dict = Depends(requerir_rol([1]))
 ):
-    db_seccion = session.get(SeccionModel, id)
-    if not db_seccion or not db_seccion.is_active:
+    """Elimina una sección (soft delete)."""
+    seccion = session.get(SeccionModel, seccion_id)
+    if not seccion:
         raise HTTPException(status_code=404, detail="Sección no encontrada")
-        
-    db_seccion.is_active = False
-    session.add(db_seccion)
-    session.commit()
-    return {"message": "Sección dada de baja correctamente"}
+
+    try:
+        seccion.is_active = False
+        session.commit()
+
+        registrar_log(
+            session=session,
+            usuario_id=usuario_actual.get("id"),
+            accion="DELETE",
+            tabla_afectada="secciones",
+            registro_id=seccion_id,
+            detalles=f"Sección eliminada: {seccion.nombre_seccion}",
+            ip_address=request.client.host
+        )
+
+        return {"mensaje": "Sección eliminada exitosamente"}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=f"Error al eliminar: {str(e)}")
